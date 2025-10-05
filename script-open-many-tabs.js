@@ -93,22 +93,22 @@
   
   // Batch size input
   const batchLbl = document.createElement("label");
-  batchLbl.textContent = "Số lượng tab để mở cùng lúc:";
+  batchLbl.textContent = "Số lượng tab để mở cùng lúc (khuyến nghị 5):";
   batchLbl.style.cssText = `display:block;font-size:13px;opacity:.8;margin-bottom:6px;`;
   const batchIn = document.createElement("input");
   batchIn.type = "number";
-  batchIn.value = "10";
+  batchIn.value = "5";
   batchIn.min = "1";
   batchIn.max = "100";
   batchIn.style.cssText = `width:100px;font:13px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;border:1px solid #d0d7de;border-radius:8px;padding:8px;outline:none;`;
   
   // Delay input
   const delayLbl = document.createElement("label");
-  delayLbl.textContent = "Độ trễ giữa các tab (mili giây):";
+  delayLbl.textContent = "Độ trễ giữa các tab (mili giây, khuyến nghị 1000ms):";
   delayLbl.style.cssText = `display:block;font-size:13px;opacity:.8;margin-bottom:6px;margin-top:10px;`;
   const delayIn = document.createElement("input");
   delayIn.type = "number";
-  delayIn.value = "500";
+  delayIn.value = "1000";
   delayIn.min = "0";
   delayIn.max = "10000";
   delayIn.style.cssText = `width:100px;font:13px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;border:1px solid #d0d7de;border-radius:8px;padding:8px;outline:none;`;
@@ -163,10 +163,15 @@
   exportBtn.onmouseleave = () => (exportBtn.style.background = "#0b57d0");
   const clearAllBtn = document.createElement("button");
   clearAllBtn.textContent = "Xóa tất cả";
-  clearAllBtn.style.cssText = `all:unset;background:#0b57d0;color:#fff;padding:6px 12px;border-radius:6px;cursor:pointer;font-weight:600;transition:background 0.2s;`;
+  clearAllBtn.style.cssText = `all:unset;background:#0b57d0;color:#fff;padding:6px 12px;border-radius:6px;cursor:pointer;font-weight:600;margin-right:8px;transition:background 0.2s;`;
   clearAllBtn.onmouseenter = () => (clearAllBtn.style.background = "#0a47ac");
   clearAllBtn.onmouseleave = () => (clearAllBtn.style.background = "#0b57d0");
-  actionButtonsContainer.append(exportBtn, clearAllBtn);
+  const resetOpenedBtn = document.createElement("button");
+  resetOpenedBtn.textContent = "Reset trạng thái đã mở";
+  resetOpenedBtn.style.cssText = `all:unset;background:#f59e0b;color:#fff;padding:6px 12px;border-radius:6px;cursor:pointer;font-weight:600;transition:background 0.2s;`;
+  resetOpenedBtn.onmouseenter = () => (resetOpenedBtn.style.background = "#d97706");
+  resetOpenedBtn.onmouseleave = () => (resetOpenedBtn.style.background = "#f59e0b");
+  actionButtonsContainer.append(exportBtn, clearAllBtn, resetOpenedBtn);
 
   // Table for ID list
   const tableContainer = document.createElement("div");
@@ -207,7 +212,7 @@
   status.style.cssText = `margin-top:12px;font-size:13px;min-height:20px;opacity:.95;`;
   const help = document.createElement("div");
   help.style.cssText = `margin-top:8px;font-size:12px;color:#6b7280;background:#f9fafb;padding:8px;border-radius:6px;`;
-  help.innerHTML = `💡 <strong>Quy trình làm việc:</strong> Phân tích URL → Chọn tham số → Thêm ID → Mở tab theo lô`;
+  help.innerHTML = `💡 <strong>Quy trình làm việc:</strong> Phân tích URL → Chọn tham số → Thêm ID → Mở tab theo lô (tối đa 5 tab/lô)`;
 
   rightColumn.append(tableSection, actionSection, status, help);
 
@@ -449,35 +454,65 @@
       </ol>`;
   }
   
-  // Modified openMany function with delay
+  // Modified openMany function - opens tabs sequentially like a human would
   async function openMany(urls) {
-    const delay = parseInt(delayIn.value) || 0;
-    const wins = []; let blocked = 0;
+    // Get delay between tabs (default 1000ms)
+    const delay = parseInt(delayIn.value) || 1000;
+    // Get batch size from input (default 5)
+    const batchSize = parseInt(batchIn.value) || 5;
     
+    // Tracking variables
+    let totalOpened = 0;
+    let totalBlocked = 0;
+    let currentBatch = 0;
+    
+    // Process each URL sequentially
     for (let i = 0; i < urls.length; i++) {
-      const w = window.open("about:blank", "_blank");
-      if (w) { 
-        try { w.opener = null; } catch {} 
-        wins.push(w); 
-      } else { 
-        blocked++; 
+      // Check if we're starting a new batch (for batch-level delays)
+      const batchIndex = Math.floor(i / batchSize);
+      if (batchIndex > currentBatch) {
+        currentBatch = batchIndex;
+        // Add extra delay between batches (2x normal delay)
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
       
-      // Add delay between opening tabs (except for the last one)
-      if (delay > 0 && i < urls.length - 1) {
+      // Open tab with URL immediately (not about:blank)
+      const w = window.open(urls[i], "_blank");
+      
+      if (w) {
+        // Tab opened successfully
+        try { w.opener = null; } catch {} // Security: prevent tab from accessing parent
+        totalOpened++;
+        
+        // Update status with real-time progress
+        status.style.color = "#059669"; 
+        status.style.fontWeight = "600";
+        status.textContent = `✅ Đang mở tab ${i + 1}/${urls.length}... (Đã mở: ${totalOpened}, Bị chặn: ${totalBlocked})`;
+      } else {
+        // Tab was blocked by popup blocker
+        totalBlocked++;
+        
+        // Show popup permission instructions on first block
+        if (totalBlocked === 1) {
+          showGrantSteps();
+        }
+      }
+      
+      // Wait before opening next tab (except for the last one)
+      if (i < urls.length - 1 && delay > 0) {
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
     
-    if (!wins.length) { showGrantSteps(); return; }
-
-    let opened = 0, failed = blocked;
-    wins.forEach((w, i) => {
-      try { w.location.href = urls[i]; opened++; }
-      catch (e) { try { w.close(); } catch {} failed++; }
-    });
-    status.style.color = "#059669"; status.style.fontWeight = "600";
-    status.textContent = `✅ Đã mở ${opened} tab${failed ? ` (${failed} bị chặn)` : ""}.`;
+    // Display final summary
+    status.style.color = "#059669"; 
+    status.style.fontWeight = "600";
+    status.textContent = `✅ Hoàn thành! Đã mở ${totalOpened} tab${totalBlocked ? ` (${totalBlocked} bị chặn)` : ""}.`;
+    
+    // If all tabs were blocked, ensure error message is shown
+    if (totalBlocked > 0 && totalOpened === 0) {
+      showGrantSteps();
+    }
   }
 
   // ---------- Events ----------
@@ -566,6 +601,29 @@
       
       status.style.color = "#059669"; status.style.fontWeight = "600";
       status.textContent = "✅ Đã xóa tất cả ID khỏi danh sách.";
+    }
+  });
+
+  resetOpenedBtn.addEventListener("click", () => {
+    // Count how many IDs are currently opened
+    const openedCount = idList.filter(item => item.opened).length;
+    
+    if (openedCount === 0) {
+      status.style.color = "#dc2626"; status.style.fontWeight = "600";
+      status.textContent = "❌ Không có ID nào được đánh dấu là đã mở.";
+      return;
+    }
+    
+    if (confirm(`Bạn có chắc chắn muốn reset trạng thái của ${openedCount} ID từ \"\u0110ã mở\" sang \"Chưa mở\"?`)) {
+      // Reset all opened status to false
+      idList.forEach(item => {
+        item.opened = false;
+      });
+      
+      renderIdTable();
+      
+      status.style.color = "#059669"; status.style.fontWeight = "600";
+      status.textContent = `✅ Đã reset trạng thái của ${openedCount} ID. Bây giờ bạn có thể mở lại các tab này.`;
     }
   });
 
