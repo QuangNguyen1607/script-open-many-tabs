@@ -190,7 +190,13 @@
     <tbody id="idTableBody"></tbody>
   `;
   tableContainer.appendChild(table);
-  tableSection.append(tableTitle, savedCounter, actionButtonsContainer, tableContainer);
+  
+  // Pagination controls container
+  const paginationContainer = document.createElement("div");
+  paginationContainer.id = "paginationControls";
+  paginationContainer.style.cssText = `display:none;margin-top:16px;padding:12px;background:#f8fafc;border-radius:8px;`;
+  
+  tableSection.append(tableTitle, savedCounter, actionButtonsContainer, tableContainer, paginationContainer);
 
   // Action buttons
   const actionSection = document.createElement("div");
@@ -246,6 +252,9 @@
   let idList = [];
   // Saved IDs from storage
   let savedIds = JSON.parse(localStorage.getItem('savedIds') || '[]');
+  // Pagination state
+  let currentPage = 1;
+  let itemsPerPage = 20;
 
   // ---------- Helpers ----------
   const normalizeUrl = (raw) => {
@@ -326,6 +335,174 @@
     }
   }
 
+  // Pagination helper: Navigate to a specific page
+  function goToPage(page) {
+    const totalPages = Math.ceil(idList.length / itemsPerPage);
+    if (page < 1) page = 1;
+    if (page > totalPages) page = totalPages;
+    currentPage = page;
+    renderIdTable();
+  }
+
+  // Pagination helper: Change items per page
+  function changeItemsPerPage(newSize) {
+    itemsPerPage = newSize === 'all' ? idList.length || 999999 : parseInt(newSize);
+    currentPage = 1; // Reset to first page
+    renderIdTable();
+  }
+
+  // Pagination helper: Update pagination UI controls
+  function updatePaginationControls() {
+    const container = document.getElementById("paginationControls");
+    if (!container) return;
+    
+    const totalItems = idList.length;
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    
+    // Hide pagination if only one page or no items
+    if (totalPages <= 1) {
+      container.style.display = "none";
+      return;
+    }
+    
+    container.style.display = "flex";
+    container.style.justifyContent = "space-between";
+    container.style.alignItems = "center";
+    container.style.flexWrap = "wrap";
+    container.style.gap = "12px";
+    container.innerHTML = "";
+    
+    // Left side: Info text
+    const startIndex = (currentPage - 1) * itemsPerPage + 1;
+    const endIndex = Math.min(currentPage * itemsPerPage, totalItems);
+    const infoText = document.createElement("div");
+    infoText.style.cssText = `font-size:13px;color:#6b7280;font-weight:500;`;
+    infoText.textContent = `Hiển thị ${startIndex}-${endIndex} trong số ${totalItems} mục`;
+    
+    // Center: Page navigation
+    const navContainer = document.createElement("div");
+    navContainer.style.cssText = `display:flex;align-items:center;gap:6px;`;
+    
+    // Previous button
+    const prevBtn = document.createElement("button");
+    prevBtn.innerHTML = `&laquo; Trước`;
+    prevBtn.disabled = currentPage === 1;
+    prevBtn.setAttribute('aria-label', 'Trang trước');
+    prevBtn.style.cssText = `all:unset;padding:6px 12px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;background:${currentPage === 1 ? "#f3f4f6" : "#fff"};color:${currentPage === 1 ? "#9ca3af" : "#0b57d0"};border:1px solid ${currentPage === 1 ? "#e5e7eb" : "#d0d7de"};`;
+    if (currentPage > 1) {
+      prevBtn.onmouseenter = () => { prevBtn.style.background = "#f0f9ff"; prevBtn.style.borderColor = "#0b57d0"; };
+      prevBtn.onmouseleave = () => { prevBtn.style.background = "#fff"; prevBtn.style.borderColor = "#d0d7de"; };
+      prevBtn.onclick = () => goToPage(currentPage - 1);
+    } else {
+      prevBtn.style.cursor = "not-allowed";
+    }
+    navContainer.appendChild(prevBtn);
+    
+    // Page number buttons
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    // Adjust start if we're near the end
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+    
+    // First page + ellipsis if needed
+    if (startPage > 1) {
+      const firstPageBtn = createPageButton(1, currentPage === 1);
+      navContainer.appendChild(firstPageBtn);
+      
+      if (startPage > 2) {
+        const ellipsis = document.createElement("span");
+        ellipsis.textContent = "...";
+        ellipsis.style.cssText = `padding:0 4px;color:#9ca3af;font-weight:600;`;
+        navContainer.appendChild(ellipsis);
+      }
+    }
+    
+    // Page number buttons
+    for (let i = startPage; i <= endPage; i++) {
+      const pageBtn = createPageButton(i, i === currentPage);
+      navContainer.appendChild(pageBtn);
+    }
+    
+    // Ellipsis + last page if needed
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) {
+        const ellipsis = document.createElement("span");
+        ellipsis.textContent = "...";
+        ellipsis.style.cssText = `padding:0 4px;color:#9ca3af;font-weight:600;`;
+        navContainer.appendChild(ellipsis);
+      }
+      
+      const lastPageBtn = createPageButton(totalPages, currentPage === totalPages);
+      navContainer.appendChild(lastPageBtn);
+    }
+    
+    // Next button
+    const nextBtn = document.createElement("button");
+    nextBtn.innerHTML = `Tiếp &raquo;`;
+    nextBtn.disabled = currentPage === totalPages;
+    nextBtn.setAttribute('aria-label', 'Trang tiếp theo');
+    nextBtn.style.cssText = `all:unset;padding:6px 12px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;background:${currentPage === totalPages ? "#f3f4f6" : "#fff"};color:${currentPage === totalPages ? "#9ca3af" : "#0b57d0"};border:1px solid ${currentPage === totalPages ? "#e5e7eb" : "#d0d7de"};`;
+    if (currentPage < totalPages) {
+      nextBtn.onmouseenter = () => { nextBtn.style.background = "#f0f9ff"; nextBtn.style.borderColor = "#0b57d0"; };
+      nextBtn.onmouseleave = () => { nextBtn.style.background = "#fff"; nextBtn.style.borderColor = "#d0d7de"; };
+      nextBtn.onclick = () => goToPage(currentPage + 1);
+    } else {
+      nextBtn.style.cursor = "not-allowed";
+    }
+    navContainer.appendChild(nextBtn);
+    
+    // Right side: Items per page selector
+    const perPageContainer = document.createElement("div");
+    perPageContainer.style.cssText = `display:flex;align-items:center;gap:8px;`;
+    
+    const perPageLabel = document.createElement("label");
+    perPageLabel.textContent = "Hiển thị:";
+    perPageLabel.htmlFor = "itemsPerPageSelect";
+    perPageLabel.style.cssText = `font-size:13px;color:#6b7280;font-weight:500;`;
+    
+    const perPageSelect = document.createElement("select");
+    perPageSelect.id = "itemsPerPageSelect";
+    perPageSelect.style.cssText = `font:13px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;border:1px solid #d0d7de;border-radius:6px;padding:4px 8px;outline:none;cursor:pointer;background:#fff;`;
+    perPageSelect.innerHTML = `
+      <option value="10" ${itemsPerPage === 10 ? 'selected' : ''}>10</option>
+      <option value="20" ${itemsPerPage === 20 ? 'selected' : ''}>20</option>
+      <option value="50" ${itemsPerPage === 50 ? 'selected' : ''}>50</option>
+      <option value="100" ${itemsPerPage === 100 ? 'selected' : ''}>100</option>
+      <option value="all" ${itemsPerPage >= totalItems ? 'selected' : ''}>Tất cả</option>
+    `;
+    perPageSelect.onchange = (e) => changeItemsPerPage(e.target.value);
+    
+    perPageContainer.appendChild(perPageLabel);
+    perPageContainer.appendChild(perPageSelect);
+    
+    container.appendChild(infoText);
+    container.appendChild(navContainer);
+    container.appendChild(perPageContainer);
+  }
+
+  // Helper function to create page number button
+  function createPageButton(pageNum, isActive) {
+    const btn = document.createElement("button");
+    btn.textContent = pageNum;
+    btn.setAttribute('aria-label', `Trang ${pageNum}`);
+    btn.setAttribute('aria-current', isActive ? 'page' : 'false');
+    btn.style.cssText = `all:unset;padding:6px 12px;border-radius:6px;font-size:13px;font-weight:600;min-width:32px;text-align:center;cursor:pointer;transition:all 0.2s;background:${isActive ? "#0b57d0" : "#fff"};color:${isActive ? "#fff" : "#374151"};border:1px solid ${isActive ? "#0b57d0" : "#d0d7de"};`;
+    
+    if (!isActive) {
+      btn.onmouseenter = () => { btn.style.background = "#f0f9ff"; btn.style.borderColor = "#0b57d0"; btn.style.color = "#0b57d0"; };
+      btn.onmouseleave = () => { btn.style.background = "#fff"; btn.style.borderColor = "#d0d7de"; btn.style.color = "#374151"; };
+      btn.onclick = () => goToPage(pageNum);
+    } else {
+      btn.style.cursor = "default";
+    }
+    
+    return btn;
+  }
+
   function renderIdTable() {
     const tbody = document.getElementById("idTableBody");
     tbody.innerHTML = "";
@@ -339,16 +516,31 @@
       emptyRow.appendChild(emptyCell);
       tbody.appendChild(emptyRow);
     } else {
-      idList.forEach((item, index) => {
+      // Calculate pagination values
+      const totalItems = idList.length;
+      const totalPages = Math.ceil(totalItems / itemsPerPage);
+      
+      // Ensure current page is valid
+      if (currentPage > totalPages) currentPage = totalPages;
+      if (currentPage < 1) currentPage = 1;
+      
+      // Calculate slice indices for current page
+      const startIndex = (currentPage - 1) * itemsPerPage;
+      const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+      const currentPageItems = idList.slice(startIndex, endIndex);
+      
+      // Render only current page items
+      currentPageItems.forEach((item, relativeIndex) => {
+        const absoluteIndex = startIndex + relativeIndex;
         const row = document.createElement("tr");
         row.style.cssText = `border-bottom:1px solid #f3f4f6;transition:background 0.2s;`;
         row.onmouseenter = () => (row.style.background = "#f9fafb");
         row.onmouseleave = () => (row.style.background = "transparent");
         
-        // Order cell
+        // Order cell - shows actual position in full list
         const orderCell = document.createElement("td");
         orderCell.style.cssText = `padding:10px;font-size:13px;font-weight:600;color:#6b7280;text-align:center;`;
-        orderCell.textContent = index + 1;
+        orderCell.textContent = absoluteIndex + 1;
         
         // ID cell
         const idCell = document.createElement("td");
@@ -375,7 +567,7 @@
         saveBtn.onmouseleave = () => {
           if (!item.saved) saveBtn.style.background = "#eef2ff";
         };
-        saveBtn.onclick = () => toggleSaveId(index);
+        saveBtn.onclick = () => toggleSaveId(absoluteIndex);
         saveCell.appendChild(saveBtn);
         
         row.appendChild(orderCell);
@@ -395,6 +587,9 @@
     
     // Update saved counter
     updateSavedCounter();
+    
+    // Update pagination controls
+    updatePaginationControls();
   }
 
   function toggleSaveId(index) {
@@ -560,6 +755,10 @@
       }
     });
     
+    // Keep current page valid after adding items
+    const totalPages = Math.ceil(idList.length / itemsPerPage);
+    if (currentPage > totalPages) currentPage = totalPages;
+    
     renderIdTable();
     
     // Clear textarea after adding
@@ -597,6 +796,8 @@
   clearAllBtn.addEventListener("click", () => {
     if (confirm("Bạn có chắc chắn muốn xóa tất cả ID khỏi danh sách? Điều này sẽ không ảnh hưởng đến các ID đã lưu.")) {
       idList = [];
+      // Reset pagination to first page when clearing all items
+      currentPage = 1;
       renderIdTable();
       
       status.style.color = "#059669"; status.style.fontWeight = "600";

@@ -56,6 +56,18 @@ Công cụ JavaScript để mở nhiều tab Facebook với batch processing và
 | 1   | ID_123        | Đã mở      | Lưu ID |
 | 2   | ID_456        | Chưa mở tab| ✓ Đã lưu |
 
+### Phân trang (Pagination)
+
+✨ **Tính năng mới!** Bảng danh sách ID hiện hỗ trợ phân trang để tối ưu hiện thị:
+
+- **Mặc định**: 20 ID mỗi trang
+- **Tùy chỉnh**: Chọn số mục hiển thị (10, 20, 50, 100, hoặc Tất cả)
+- **Điều hướng**: Sử dụng nút Trước/Tiếp hoặc nhấp vào số trang
+- **Thông tin**: Hiển thị "Hiển thị X-Y trong số Z mục"
+- **Tự động ẩn**: Phân trang chỉ hiện khi có nhiều hơn 1 trang
+
+**Lưu ý**: STT trong bảng luôn hiển thị vị trí thực tế trong toàn bộ danh sách, không phải số thứ tự trong trang hiện tại.
+
 ## Lưu ý
 
 - Cho phép popup cho domain `business.facebook.com`
