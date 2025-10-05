@@ -10,6 +10,7 @@
     all: initial; position: fixed; top: 24px; right: 24px; z-index: 2147483647;
     width: 1400px; max-width: 95vw; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
     color:#111; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,.2);
+	z-index: 999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999; 
   `;
   const head = document.createElement("div");
   head.style.cssText = `background:#0b57d0;color:#fff;padding:12px 16px;font-weight:600;display:flex;justify-content:space-between;align-items:center;cursor:move;user-select:none;`;
